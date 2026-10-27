@@ -23,7 +23,10 @@ public class Functions {
     //PRE:  accepts a string and verifies that it is valid
     //POST: if string is C, S or CD return true, otherwise return false
     public static boolean validType(String t){
-        //add logic here
+        //check if the account type is valid
+        if (t.equalsIgnoreCase("C") || 
+        t.equalsIgnoreCase("S") || t.equalsIgnoreCase("CD"))
+            return true;
         return false;
     }
 
@@ -66,21 +69,236 @@ public class Functions {
             PrintWriter errWriter = new PrintWriter(new FileWriter(errorLog))
         ) {
             String line;
+            int lineNumber = 0;
             reader.readLine(); // skip header
             while ((line = reader.readLine()) != null) {
-                String[] tokens = line.split(",");
+                lineNumber++;
+                String[] tokens = line.split(",", -1);
                 try {
+                    if (tokens.length != 7) {
+                        throw new IllegalArgumentException("Incorrect number of fields in record: " + line);
+                    }
+                    for (int i = 0; i < tokens.length; i++) {
+                        tokens[i] = tokens[i].trim();
+                    }
                   
                     //verify the tokens ensuring that data read is valid for the transaction before processing the command
+                    String date = tokens[4];
+                    String transType = tokens[5].toUpperCase();
+                    String[] t = tokens;
+                    if (validDate(date) == -1) {
+                        throw new IllegalArgumentException("Invalid date in record: " + line);
+                    }
+                    if (!validTransType(transType)) {
+                        throw new IllegalArgumentException("Invalid transaction type in record: " + line);
+                    }
+                    // INTEREST: Apply interest to every account.
+                if (transType.equals("INTEREST")) {
+                    if (!t[0].isEmpty() || !t[1].isEmpty()
+                            || !t[2].isEmpty() || !t[3].isEmpty()
+                            || !t[6].isEmpty()) {
+                        throw new IllegalArgumentException(
+                            "Invalid INTEREST record."
+                        );
+                    }
 
-                } catch (Exception e) {
-                    errWriter.println("Parse error in record: " + line);
+                    for (BankAccount acct : accounts) {
+                        acct.processInterestEarned();
+                    }
+                    continue;
+                }
+
+                if (t[0].isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Missing account number."
+                    );
+                }
+
+                if (!isDigits(t[0])) {
+                    throw new IllegalArgumentException(
+                        "Account number must contain digits."
+                    );
+                }
+
+                int acctNum = Integer.parseInt(t[0]);
+
+                // TRANSFER: column 2 contains destination account.
+                if (transType.equals("TRANSFER")) {
+                    if (t[1].isEmpty() || !isDigits(t[1])) {
+                        throw new IllegalArgumentException(
+                            "Invalid destination account number."
+                        );
+                    }
+
+                    if (!t[2].isEmpty() || !t[3].isEmpty()) {
+                        throw new IllegalArgumentException(
+                            "Transfer names must be blank."
+                        );
+                    }
+
+                    if (t[6].isEmpty()) {
+                        throw new IllegalArgumentException(
+                            "Missing transfer amount."
+                        );
+                    }
+
+                    int destNum = Integer.parseInt(t[1]);
+                    double amount = Double.parseDouble(t[6]);
+
+                    if (amount <= 0) {
+                        throw new IllegalArgumentException(
+                            "Transfer amount must be positive."
+                        );
+                    }
+
+                    BankAccount source = null;
+                    BankAccount destination = null;
+
+                    for (BankAccount acct : accounts) {
+                        if (acct.getAccountNumber() == acctNum) {
+                            source = acct;
+                        }
+                        if (acct.getAccountNumber() == destNum) {
+                            destination = acct;
+                        }
+                    }
+
+                    if (source == null || destination == null) {
+                        throw new IllegalArgumentException(
+                            "Source or destination account not found."
+                        );
+                    }
+
+                    if (source == destination) {
+                        throw new IllegalArgumentException(
+                            "Cannot transfer to the same account."
+                        );
+                    }
+
+                    if (amount > source.getAccountBalance()) {
+                        throw new IllegalArgumentException(
+                            "Insufficient funds for transfer."
+                        );
+                    }
+
+                    source.processWithdrawal(amount);
+                    destination.processDeposit(amount);
+                    continue;
+                }
+
+                if (t[1].isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Missing account type."
+                    );
+                }
+
+                String type = t[1].toUpperCase();
+                String firstName = t[2];
+                String lastName = t[3];
+
+                if (!validType(type)) {
+                    throw new IllegalArgumentException(
+                        "Invalid account type."
+                    );
+                }
+
+                if (firstName.isEmpty() || lastName.isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Missing account holder name."
+                    );
+                }
+
+                if (t[6].isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "Missing transaction amount."
+                    );
+                }
+
+                double amount = Double.parseDouble(t[6]);
+
+                if (amount < 0) {
+                    throw new IllegalArgumentException(
+                        "Amount must be positive."
+                    );
+                }
+
+                // NEW: Create an account.
+                if (transType.equals("NEW")) {
+                    if (accountExists(accounts, acctNum)) {
+                        throw new IllegalArgumentException(
+                            "Account already exists."
+                        );
+                    }
+
+                    BankAccount newAccount;
+                    if (type.equalsIgnoreCase("CD")) {
+                        newAccount = new Certificate(
+                            acctNum, type, firstName, lastName,
+                            date, (double) amount, amount, 0
+                        );
+                    } else if (type.equalsIgnoreCase("C")){
+                        newAccount = new Checking(
+                            acctNum, type, firstName, lastName,
+                            date, (double) amount, amount, 0
+                        );
+                    } else {
+                        newAccount = new Savings(
+                            acctNum, type, firstName, lastName,
+                            date, (double) amount, amount, 0
+                        );
+                    }
+                    accounts.add(newAccount);
+                    continue;
+                }
+
+                // All other transactions require an existing account.
+                BankAccount account = null;
+
+                for (BankAccount acct : accounts) {
+                    if (acct.getAccountNumber() == acctNum) {
+                        account = acct;
+                        break;
+                    }
+                }
+
+                if (account == null) {
+                    throw new IllegalArgumentException(
+                        "Account does not exist."
+                    );
+                }
+
+                // Ensure the transaction account type matches.
+                if (!account.getAccountType().equalsIgnoreCase(type)) {
+                    throw new IllegalArgumentException(
+                        "Account type does not match."
+                    );
+                }
+
+                switch (transType) {
+                    case "DEPOSIT":
+                        account.processDeposit(amount);
+                        break;
+
+                    case "WITHDRAWAL":
+                        if (!account.processWithdrawal(amount)) {
+                            throw new IllegalArgumentException(
+                                "Withdrawal failed for account " + acctNum
+                            );
+                        }
+                        break;
+
+                    default:
+                        throw new IllegalArgumentException(
+                            "Unsupported transaction."
+                        );
+                }
+                } catch (IllegalArgumentException e) {
+                    errWriter.println("Line " + lineNumber + ": " + e.getMessage());
                 }
             }
         } catch (IOException e) {
-            System.out.println("Error reading file: " + e.getMessage());
+            System.out.println("Error processing file: " + e.getMessage());
         }
-
     }
 
     //PRE:  none

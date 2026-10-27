@@ -8,7 +8,7 @@ public abstract class BankAccount {
     protected String firstName;
     protected String lastName;
     protected String transactionDate;
-    protected int transactionAmount;
+    protected double transactionAmount;
     protected double accountBalance;
     protected double interestEarned;
 
@@ -26,7 +26,7 @@ public abstract class BankAccount {
 
     //Overloaded constructor 
     public BankAccount(int accountNumber, String accountType, String firstName, String lastName,
-                       String transactionDate, int transactionAmount,
+                       String transactionDate, double transactionAmount,
                        double accountBalance, double interestEarned) {
         this.accountNumber = accountNumber;
         this.accountType = accountType;
@@ -44,6 +44,9 @@ public abstract class BankAccount {
     public String getAccountType() { return accountType; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }
+    public double getAccountBalance() { return accountBalance; }
+    public double getInterestEarned() { return interestEarned; }
+
 
 
     // Setters
@@ -57,15 +60,27 @@ public abstract class BankAccount {
                    accountBalance, interestEarned);
     }
 
-    public void processDeposit(int amt){
-        //add logic for this function
-        
+    public void processDeposit(double amt){
+        //add logic for this function)) {
+            this.accountBalance += amt;
+        }
+
+    public boolean processWithdrawal(double amt) {
+        if (amt <= 0) {
+            System.out.println("Withdrawal amount must be positive.");
+            return false;
     }
 
-    public void processWithdrawal(int amt){
-        //add logic for this function
-       
+        if (amt > accountBalance) {
+            System.out.println("Insufficient funds.");
+            return false;
     }
+
+        accountBalance -= amt;
+        return true;
+}
+       
+    
 
     public void processInterestEarned(){ 
         this.interestEarned += 0;

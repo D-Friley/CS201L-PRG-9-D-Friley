@@ -1,0 +1,9 @@
+Line 11: Amount must be positive.
+Line 14: Source or destination account not found.
+Line 19: Withdrawal failed for account 112
+Line 20: Account does not exist.
+Line 22: Withdrawal failed for account 112
+Line 26: Insufficient funds for transfer.
+Line 35: Withdrawal failed for account 112
+Line 37: Missing account number.
+Line 38: Withdrawal failed for account 113
